@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Ray Casting Tutorial</title>
+
+    </head>
+
+    <body>
+	<h1>Step 8 : fishbowl effect</h1>
+
+	Before drawing the wall, there is one problem that must be taken care of. This problem is known as the “fishbowl effect.” Fishbowl effect happens because ray-casting implementation mixes polar coordinate and Cartesian coordinate together. Therefore, using the above formula on wall slices that are not directly in front of the viewer will gives a longer distance. This is not what we want because it will cause a viewing distortion such as illustrated below.
+	
+	<br>
+<img src="./figures/fig15.png" alt=""/>
+<br>
+	
+	Thus to remove the viewing distortion, the resulting distance must be multiplied by cos(BETA); where BETA is the angle of the ray that is being cast relative to the viewing angle. On the figure above, the viewing angle (ALPHA) is 90 degrees because the player is facing straight upward. Because we have 60 degrees field of view, BETA is 30 degrees for the leftmost ray and it is -30 degrees for the rightmost ray.
+	
+	<li> Let us code the correction of the distance to the wall.
+	<ol>
+	<pre><code>
+	FishbowlCorrection : function(distancetowall,rayangle) 
+			{
+				beta=this.POVrad-rayangle;
+				return distancetowall*Math.cos(beta);
+			},
+			
+</code></pre>
+</ol>
+		
+		<canvas id="gameCanvas" width="640" height="480">
+            <!-- Insert fallback content here -->
+        </canvas>
+<br>
+		
+		<h1>Next: Step 9: Let us turn around</h1>
+		<li> <a href="step9.html">step9.html</a>
+		<h1>Back: Step 7</h1>
+		<li> <a href="step7.html">step7.html</a>
+		
+    </body>
+
+	
+	<script>
+	function GameWindow(canvas) {
+			// create the main canvas
+			this.width = canvas.width;
+			this.height = canvas.height;  
+			this.canvas = canvas;  
+			this.context = this.canvas.getContext( '2d' );
+			this.animationFrameID;	
+			this.frameRate =24;
+			
+
+			//PROJECTION ATTRIBUTES
+			this.FOV=60
+			this.FOVrad=this.degreeToRad(this.FOV)
+			this.HalfFOV=this.FOV/2
+			this.HalfFOVrad=this.degreeToRad(this.HalfFOV)
+			this.CenterProjectionPlaneX=this.width/2
+			this.CenterProjectionPlaneY=this.height/2
+			this.DistanceProjectionPlane=this.CenterProjectionPlaneX/Math.tan(this.HalfFOVrad);
+			this.AngleRadByColumn=this.FOVrad/this.width			
+			console.log("DistanceProjectionPlane="+this.DistanceProjectionPlane);
+			
+			// Size of a wall = 64 pixels
+			this.wallsize=64
+			
+			// 2 dimensional map using grid coordinates
+			this.fMap=[];
+			this.MAP_WIDTH=6+3;
+			this.MAP_HEIGHT=6+1; 
+			
+			
+			// Some features to display the mini map	
+			this.MAP_MAX_WIDTH=16;
+			this.MAP_MAX_HEIGHT=8;
+			this.mini_map_size=16;
+			//This mini map width for display
+			this.minimapdisplaywidth = this.MAP_MAX_WIDTH*this.mini_map_size;
+			//This mini map height for display
+			this.minimapdisplayheight = this.MAP_MAX_HEIGHT*this.mini_map_size;
+			//This mini map x offset for display
+			this.xminimapoffset=this.width-this.minimapdisplaywidth;
+			this.yminimapoffset = 0;
+
+			
+			//Coordinates of the Wall intersections points. Horizontal and Vertical intersections.
+			this.xunitHintersection=-1;
+			this.yunitHintersection=-1;
+			
+			this.xunitVintersection=-1;
+			this.yunitVintersection=-1;
+			
+			//Tan of the rayangle
+			this.tanrayangle=-1;
+			
+			
+			//Table of Distances from the player to the walls.
+			var nbangles=this.width;
+			this.distancesToWalls=new Array(nbangles);
+			
+			//The coordinates of the player in the unit coordinates
+			//system
+			this.xunitplayer;
+			this.yunitplayer;
+			//The point of view in radian of the player
+			this.POVrad;
+			
+						
+			//Player step in pixels 
+			//The size of one step
+			//The speed of the player
+			this.PlayerStep = 4;
+			
+			//The size of the wall in the mini map
+			this.playersize=8
+	
+			//Keyboard variables
+			//Key to go up
+			this.fKeyUp=false;
+			//Key to go down
+			this.fKeyDown=false;
+			
+			this.draw=1;
+			this.shading=1;
+			this.debug=0;
+			
+			this.shadingnorm=450.0;
+		}
+		
+		GameWindow.prototype = 
+		{
+		
+			init : function() 
+			{
+				this.xunitplayer=this.width/2;
+				this.yunitplayer=this.MAP_HEIGHT*this.wallsize-2*this.wallsize;
+				cssColor="red";
+				
+				this.drawBorder();
+				this.loadMap();
+				this.drawMap();
+				this.drawPlayer(cssColor,this.playersize);
+				
+				
+				var POVdegree=90;
+				this.POVrad=this.degreeToRad(POVdegree);
+				
+				
+				this.ComputeBestWallIntersections(this.xunitplayer,this.yunitplayer,this.POVrad,this.debug,this.draw);
+				
+				this.drawWalls(this.xunitplayer,this.yunitplayer,this.POVrad,this.shading);
+				
+			},
+			
+			
+			FishbowlCorrection : function(distancetowall,rayangle) 
+			{
+				beta=this.POVrad-rayangle;
+				return distancetowall*Math.cos(beta);
+			},
+			
+			start : function() 
+			{
+				this.init();
+				this.update();
+				
+				window.addEventListener("keydown", this.handleKeyDown.bind(this), false);
+				window.addEventListener("keyup", this.handleKeyUp.bind(this), false);
+		
+				this.animationFrameID = requestAnimationFrame(this.update.bind(this));
+			},
+			
+			
+			handleKeyDown : function(e) 
+			{
+
+				if (!e)
+					e = window.event;
+
+				// UP keypad
+				if (e.keyCode == '38'  || String.fromCharCode(e.keyCode)=='W') 
+				{
+					this.fKeyUp=true;
+					//console.log("down");
+				}
+				
+				// DOWN keypad
+				if (e.keyCode == '40' || String.fromCharCode(e.keyCode)=='S') 
+				{
+					this.fKeyDown=true;
+				}
+			},
+			
+			handleKeyUp : function(e) 
+			{
+				if (!e)
+					e = window.event;
+
+				// UP keypad
+				if (e.keyCode == '38'  || String.fromCharCode(e.keyCode)=='W') 
+				{
+					this.fKeyUp=false;
+					//console.log("up");
+				}
+				
+				// DOWN keypad
+				else if (e.keyCode == '40' || String.fromCharCode(e.keyCode)=='S') 
+				{
+					this.fKeyDown=false;
+				}
+			},
+		
+			// This function is called every certain interval (see this.frameRate) to handle input and render the screen
+			update : function() 
+			{
+				this.drawBackground();
+				this.drawMap();
+				this.drawPlayer(cssColor,this.playersize);
+				
+				
+				this.ComputeBestWallIntersections(this.xunitplayer,this.yunitplayer,this.POVrad,this.debug,this.draw);
+				
+				this.drawWalls(this.xunitplayer,this.yunitplayer,this.POVrad,this.shading);
+				
+			
+				// move forward
+				if (this.fKeyUp)
+				{
+					console.log("up");
+					//Math.round(playerXDir*this.fPlayerSpeed);
+					this.yunitplayer-=this.PlayerStep;//Math.round(playerYDir*this.fPlayerSpeed);
+				}
+				
+				// move forward
+				if (this.fKeyDown)
+				{
+					console.log("down");
+					this.yunitplayer+=this.PlayerStep;//Math.round(playerYDir*this.fPlayerSpeed);
+				}
+				var object=this;
+			
+				// Render next frame
+				setTimeout(function() 
+				{
+					object.animationFrameID = requestAnimationFrame(object.update.bind(object));
+				}, 1000 / this.frameRate);
+				
+			},
+		
+		
+		
+			/*******************************************************************/
+			drawBackground : function()
+			{
+				this.drawFillRectangle(0,0,this.width,this.height,"white");
+			},
+			
+			xytoindex: function(x,y,width)
+			{
+				index = x + width*y;
+				return index;
+			},
+			
+			drawFillRectangle: function(x, y, width, height, cssColor)
+			{
+				this.context.fillStyle = cssColor; 
+				this.context.beginPath();
+				this.context.rect(x, y, width, height);
+				this.context.closePath();
+				this.context.fill();		
+			},
+			
+			
+			drawGrid: function()
+			{
+				
+				//Draw vertical axis
+				cssColor="blue";
+				for (var x=0; x<this.width; x=x+this.wallsize)
+				{
+					this.drawLine(x,0,x,this.height,cssColor);			
+				}
+				
+				//Draw horizontal axis
+				for (var y=0; y<this.height; y=y+this.wallsize)
+				{
+					this.drawLine(0,y,this.width,y,cssColor);			
+				}	
+			},
+			
+			loadMap: function()
+			{
+			// CREATE A SIMPLE MAP.
+				// Use string for elegance (easier to see).  W=Wall, O=Opening
+				var map=
+							'WWWWWWWWW'+
+							'WOOOOOOOW'+
+							'WOOOOOOOW'+
+							'WOOOOOOOW'+
+							'WOOOOOOOW'+
+							'WOOOOOOOW'+
+							'WWWWWWWWW';
+				// Remove spaces and tabs
+				this.fMap=map.replace(/\s+/g, '');	
+			},
+			
+			drawMap: function()
+			{
+				
+
+				for (var y=0; y<this.MAP_HEIGHT; y++)
+				{
+					for (var x=0; x<this.MAP_WIDTH; x++)
+					{
+						var cssColor="white";
+						index=this.xytoindex(x,y,this.MAP_WIDTH);
+						if (this.fMap.charAt(index)=="W")
+						{
+							cssColor="black";
+						}
+						else
+						{
+						}
+						xstart=x*this.mini_map_size+this.xminimapoffset;
+						
+						ystart=y*this.mini_map_size;
+						this.drawFillRectangle(xstart,
+					ystart, this.mini_map_size, this.mini_map_size, cssColor);
+					}
+				}
+				
+			},
+			//*******************************************************************//
+			//* Convert arc (degree) to radian
+			//*******************************************************************//
+			degreeToRad: function(arcAngle)
+			{
+				return ((arcAngle*Math.PI)/180);    
+			},
+			
+			drawLine: function(startX, startY, endX, endY, cssColor)
+			{
+				//console.log("cssColor="+cssColor);
+				this.context.strokeStyle  = cssColor; 
+				this.context.beginPath();
+				this.context.moveTo(startX, startY);
+				this.context.lineTo(endX, endY);	
+				this.context.stroke();	
+			},
+			
+
+		
+			rgbToHexColor : function(red, green, blue) 
+			{
+				var result="#"+
+					red.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})+""+
+					green.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})+""+
+					blue.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false});
+				return result;
+			},
+			
+			drawBorder : function()
+			{
+	
+				
+				var cssColor=this.rgbToHexColor(0, 0, 0);
+				//Left border
+				this.drawLine(0,0,0,this.height,cssColor);			
+				//Right border
+				this.drawLine(this.width,0,this.width,this.height,cssColor);			
+				//Up border
+				this.drawLine(0,0,this.width,0,cssColor);			
+				//Down border
+				this.drawLine(0,this.height,this.width,this.height,cssColor);			
+				
+				
+			},
+			
+			fromUnitCoordinatesToMiniMapCoordinates : function(xunitplayer,xornot){
+				var xminimap=Math.floor(this.mini_map_size*xunitplayer/this.wallsize);
+				if(xornot==1){
+					xminimap=xminimap+this.xminimapoffset;
+				}
+				return xminimap;
+			},
+			
+			drawPlayer : function(cssColor,size)
+			{	
+				xminimap=this.fromUnitCoordinatesToMiniMapCoordinates(this.xunitplayer,1);
+				
+				yminimap=this.fromUnitCoordinatesToMiniMapCoordinates(this.yunitplayer,0);
+				
+				
+				
+				this.drawFillRectangle(xminimap,yminimap, size, size, cssColor);
+			},
+			
+			drawFOV : function()
+			{
+				var gap=this.DistanceProjectionPlane-this.height+(this.wallsize/2)
+				
+				this.drawLine(this.width/2,
+					this.DistanceProjectionPlane,0,0,"green");
+					
+				this.drawLine(this.width/2,
+					this.DistanceProjectionPlane,this.width-1,0,"green");
+					
+					this.drawLine(this.width/2,
+					this.DistanceProjectionPlane-gap,0,-gap,"blue");
+					
+				this.drawLine(this.width/2,
+					this.DistanceProjectionPlane-gap,this.width-1,-gap,"blue");
+					
+			},
+			
+
+			//Precompute tan(rayangle)
+			//This value will be used 4 times
+			//So we can store it
+			ComputeTanRayAngle: function(rayangle)
+			{
+				this.tanrayangle=Math.tan(rayangle);
+			},
+			
+			//Find Ya
+			//For the horizontal case, the height
+			//is always the height the wall 
+			findYaHorizontal: function(rayangle)
+			{
+				// Ray is facing up
+				if (rayangle > 0 && rayangle < Math.PI)
+				{
+					return -this.wallsize;
+				}else
+				{
+					// Ray is facing down
+					return this.wallsize;
+				}
+				
+			},
+
+			//Find the Y coordinate of A
+			//We first need to find the grid coordinates
+			//of the player 
+			//Then we multiply the grid coordinates by the wall size
+			findYofPointAHorizontal: function(rayangle,xunitplayer,yunitplayer,Ya)
+			{
+				var ygridplayer= Math.floor(yunitplayer/this.wallsize);
+				var yaunitplayer;
+				if (Ya<0){
+					yaunitplayer=(ygridplayer*this.wallsize)-1;
+				}else{
+					yaunitplayer=(ygridplayer*this.wallsize)+this.wallsize;
+				}
+				
+				return yaunitplayer;
+			},
+			
+			//Find Xa
+			//We find Xa according to the trigonometry formula
+			findXaHorizontal: function(rayangle)
+			{	
+				var xaunit=this.wallsize/(this.tanrayangle);
+				var res=Math.floor(xaunit);
+				
+				// Ray is facing up
+				if (rayangle > 0 && rayangle < Math.PI)
+				{
+					return res;
+				}else
+				{
+					// Ray is facing down
+					return -res;
+				}
+				
+				return res;
+			},
+			
+			//Find the X coordinate of A
+			//For the first point.
+			//The height is not the wall height in that case
+			//but the difference between Y of the player and Y of the Horizontal hit.
+			findXofPointAHorizontal: function(rayangle,xunitplayer,yunitplayer,yaunitplayer)
+			{
+				var xaunitplayer = xunitplayer+(yunitplayer-yaunitplayer)/this.tanrayangle;
+				
+				return Math.floor(xaunitplayer);
+			},
+			
+			computeNextIntersectionX: function (rayangle,xaunitplayer,yaunitplayer,xaunit,yaunit)
+			{
+				var xcunitplayer=xaunitplayer+xaunit;
+				return xcunitplayer;
+				
+			},
+			
+			computeNextIntersectionY: function (rayangle,xaunitplayer,yaunitplayer,xaunit,yaunit)
+			{
+				
+				var ycunitplayer=yaunitplayer+yaunit;
+				return ycunitplayer;
+			},
+			
+			
+			//Is A a wall ?
+			CheckIfWall: function(xaunitplayer,yaunitplayer)
+			{
+				var xagridplayer=Math.floor(xaunitplayer/this.wallsize);
+				var yagridplayer=Math.floor(yaunitplayer/this.wallsize);
+				var index=this.xytoindex(xagridplayer,yagridplayer,this.MAP_WIDTH);
+				if (this.fMap.charAt(index)=="W")
+				{
+					return 1;
+				}
+				else
+				{
+					return 0;
+				}
+			},
+			
+			//ComputeDistance
+			EuclideanDistanceBetweenPoints: function(xunitplayer,yunitplayer,xaunitplayer,yaunitplayer)
+			{
+				var x=(xunitplayer-xaunitplayer);
+				xsquare=x*x;
+				
+				var y=(yunitplayer-yaunitplayer);
+				ysquare=y*y;
+				var dist=Math.sqrt(xsquare+ysquare);
+				return dist;
+				
+			},
+			
+			//Compute the horizontal intersection point to a wall 
+			//and the distance between player and the intersection
+			FindWallHorizontal: function(xunitplayer,yunitplayer,rayangle,debug)
+			{	
+				var distance = Number.MAX_VALUE;
+				
+				var Ya=this.findYaHorizontal(rayangle);
+				
+				var Xa=this.findXaHorizontal(rayangle);
+				
+				var Ay=this.findYofPointAHorizontal(rayangle,xunitplayer,yunitplayer,Ya);
+				
+				var Ax=this.findXofPointAHorizontal(rayangle,xunitplayer,yunitplayer,Ay);
+				
+				
+				if(debug==1)
+				{
+					console.log("Ya="+Ya);
+					console.log("Xa="+Xa);
+					console.log("xunitplayer="+xunitplayer);
+					console.log("yunitplayer="+yunitplayer);
+					console.log("Ax="+Ax);
+					console.log("Ay="+Ay);
+				}
+				
+				
+				
+				if(Ay>=0 && Ay<this.height
+				&& Ax>=0 && Ax<this.width){
+					if(debug==1)
+					{
+						this.drawLine(xunitplayer,
+							yunitplayer,Ax,Ay,"green");
+						this.drawFillRectangle(Ax,Ay, this.wallsize/8, this.wallsize/8, "purple");
+					}
+					var wallhit=this.CheckIfWall(Ax,Ay);
+				
+					if (wallhit==1){
+						 distance=this.EuclideanDistanceBetweenPoints(xunitplayer,yunitplayer,Ax,Ay);
+						if(debug==1)
+						{
+							console.log("distance="+distance);
+							console.log("wallhit="+wallhit);
+						}
+						this.xunitHintersection=Ax;
+						this.yunitHintersection=Ay;
+						return distance;
+					}
+				}
+					
+				var xold=Ax;
+				var yold=Ay;
+				while(wallhit != 1 && yold>=0 && yold<this.height
+				&& xold>=0 && xold<this.width){
+					var xnew=this.computeNextIntersectionX (rayangle,xold,yold,Xa,Ya);
+					var ynew=this.computeNextIntersectionY (rayangle,xold,yold,Xa,Ya);
+					wallhit=this.CheckIfWall(xnew,ynew);
+					
+					if(debug==1)
+					{
+						this.drawLine(xunitplayer,
+							yunitplayer,xnew,ynew,"green");
+							this.drawFillRectangle(xnew,ynew, this.wallsize/8, this.wallsize/8, "purple");
+							console.log("xnew="+xnew);
+							console.log("ynew="+ynew);
+				
+					}
+					
+					xold=xnew;
+					yold=ynew;
+				}
+				
+				if (wallhit==1){
+					distance=this.EuclideanDistanceBetweenPoints(xunitplayer,yunitplayer,xold,yold);
+					if(debug==1)
+					{
+						console.log("distance="+distance);
+						console.log("wallhit="+wallhit);
+						
+						this.drawFillRectangle(xold,yold, this.wallsize/8, this.wallsize/8, "purple");
+				
+					}
+					this.xunitHintersection=xold;
+					this.yunitHintersection=yold;
+					return distance;
+				}
+				this.xunitHintersection=-1;
+				this.yunitHintersection=-1;
+				return distance;
+	
+			},
+			
+			DisplayFindWallHorizontal : function()
+			{
+				var xunitplayer=this.width/2-32;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2.5*this.wallsize;
+				var debug=1;
+					
+				for (var angle=0; angle<360; angle=angle+15)
+				{
+					var rayangle=this.degreeToRad(angle);
+					this.ComputeTanRayAngle(rayangle);
+					this.FindWallHorizontal(xunitplayer,yunitplayer,rayangle,debug);
+				}
+				
+				
+			},
+			
+						/**********************
+			Vertical Intersection
+			**********************/
+			
+			//Find Ya Vertical
+			findYaVertical: function(rayangle)
+			{
+				var Ya=this.wallsize*this.tanrayangle;
+				if (rayangle >= Math.PI/2 && rayangle < (3*Math.PI/2))
+				{
+					
+				}else{
+					Ya=-Ya;
+				}
+				return Math.floor(Ya);
+				
+			},
+			
+			//Find Xa
+			findXaVertical: function(rayangle)
+			{
+				// Ray is facing left
+				if (rayangle >= Math.PI/2 && rayangle < (3*Math.PI/2))
+				{
+					return -this.wallsize;
+				}else
+				{
+					// Ray is facing right
+					return this.wallsize;
+				}
+				
+			},
+			
+			//Find the X coordinate of A
+			//We first need to find the grid coordinates
+			//of the player 
+			//Then we multiply the grid coordinates by the wall size
+			findXofPointAVertical: function(rayangle,xunitplayer,yunitplayer,Xa)
+			{
+				var xgridplayer= Math.floor(xunitplayer/this.wallsize);
+				var xaunitplayer;
+				if (Xa<0){
+					xaunitplayer=(xgridplayer*this.wallsize)-1;
+				}else{
+					xaunitplayer=(xgridplayer*this.wallsize)+Xa;
+				}
+				return xaunitplayer;
+			},
+			
+			//Find the Y coordinate of A
+			//For the first point.
+			//The width is not the wall width in that case
+			//but the difference between X of the player and X of the Vertical hit.
+			findYofPointAVertical: function(rayangle,xunitplayer,yunitplayer,xaunitplayer)
+			{
+				var yaunitplayer=yunitplayer+((xunitplayer-xaunitplayer)*this.tanrayangle);
+				
+				return Math.floor(yaunitplayer);
+			},
+			
+			//Compute the vertical intersection point to a wall 
+			//and the distance between player and the intersection
+			FindWallVertical: function(xunitplayer,yunitplayer,rayangle,debug)
+			{	
+				var distance = Number.MAX_VALUE;
+				var Ya=this.findYaVertical(rayangle);
+				
+				var Xa=this.findXaVertical(rayangle);
+				
+				var Ax=this.findXofPointAVertical(rayangle,xunitplayer,yunitplayer,Xa);
+	
+				var Ay=this.findYofPointAVertical(rayangle,xunitplayer,yunitplayer,Ax);
+				
+				if(debug==1)
+				{
+					console.log("Ya="+Ya);
+					console.log("Xa="+Xa);
+					console.log("xunitplayer="+xunitplayer);
+					console.log("yunitplayer="+yunitplayer);
+					console.log("Ax="+Ax);
+					console.log("Ay="+Ay);
+				}
+				
+				if(Ay>=0 && Ay<this.height
+				&& Ax>=0 && Ax<this.width){
+					if(debug==1)
+					{
+						this.drawLine(xunitplayer,
+							yunitplayer,Ax,Ay,"green");
+						this.drawFillRectangle(Ax,Ay, this.wallsize/8, this.wallsize/8, "purple");
+					}
+					var wallhit=this.CheckIfWall(Ax,Ay);
+				
+					if (wallhit==1){
+						 distance=this.EuclideanDistanceBetweenPoints(xunitplayer,yunitplayer,Ax,Ay);
+						if(debug==1)
+						{
+							console.log("distanceVertical="+distance);
+							console.log("wallhit="+wallhit);
+						}
+						this.xunitVintersection=Ax;
+						this.yunitVintersection=Ay;
+						return distance;
+					}
+				}
+				
+				var xold=Ax;
+				var yold=Ay;
+				
+				while(wallhit != 1 && yold>=0 && yold<this.height
+				&& xold>=0 && xold<this.width){
+					var xnew=this.computeNextIntersectionX (rayangle,xold,yold,Xa,Ya);
+					var ynew=this.computeNextIntersectionY (rayangle,xold,yold,Xa,Ya);
+					wallhit=this.CheckIfWall(xnew,ynew);
+					
+					if(debug==1)
+					{
+						this.drawLine(xunitplayer,
+							yunitplayer,xnew,ynew,"green");
+							this.drawFillRectangle(xnew,ynew, this.wallsize/8, this.wallsize/8, "purple");
+							console.log("xnew="+xnew);
+							console.log("ynew="+ynew);
+				
+					}
+					
+					xold=xnew;
+					yold=ynew;
+				}
+				
+				if (wallhit==1){
+					distance=this.EuclideanDistanceBetweenPoints(xunitplayer,yunitplayer,xold,yold);
+					if(debug==1)
+					{
+						console.log("distance="+distance);
+						console.log("wallhit="+wallhit);
+						
+						this.drawFillRectangle(xold,yold, this.wallsize/8, this.wallsize/8, "purple");
+				
+					}
+					this.xunitVintersection=xold;
+					this.yunitVintersection=yold;
+					return distance;
+				}
+				
+				this.xunitVintersection=-1;
+				this.yunitVintersection=-1;
+				return distance;
+	
+			},
+			
+			DisplayFindWallVertical : function()
+			{
+				var xunitplayer=this.width/2;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2*this.wallsize;
+				var debug=1;
+				
+				for (var angle=0; angle<360; angle=angle+15)
+				{	
+					var rayangle=this.degreeToRad(angle);
+					this.ComputeTanRayAngle(rayangle);
+					this.FindWallVertical(xunitplayer,yunitplayer,rayangle,debug);
+				}
+				
+			},
+			
+			drawoneintersection : function()
+			{
+				var xunitplayer=this.width/2;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2*this.wallsize;
+				var debug=1;
+				
+				var rayangle=this.degreeToRad(30);
+				this.ComputeTanRayAngle(rayangle);
+				var dv=this.FindWallVertical(xunitplayer,yunitplayer,rayangle,debug);
+				var dh=this.FindWallHorizontal(xunitplayer,yunitplayer,rayangle,debug);
+				var d=Math.min(dv,dh);
+				var str="";
+				console.log("dv="+dv);
+				console.log("dh="+dh);
+				console.log("d="+d);
+				str="dv="+dv+"\ndh="+dh+"\nmin d="+d;
+				return str;
+				
+			},
+			
+			/* DRAW WALL */
+			drawWallsTest: function (shading){
+				var xunitplayer=this.width/2;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2*this.wallsize;
+				var debug=0;
+				var POVdegree=45;
+				var POVrad=this.degreeToRad(POVdegree);
+				this.drawWalls(xunitplayer,yunitplayer,POVrad,shading);
+			},
+		
+			ShadingGrey : function(greylevel,distance){
+				// Add simple shading so that farther wall slices appear darker.
+				// 750 is arbitrary value of the farthest distance.  
+				dist=Math.floor(distance);
+				var greyhaded=greylevel-(dist/this.shadingnorm)*255.0;
+				// don't allow it to be too dark
+				if (greyhaded < 0)
+					greyhaded=0;
+				if (greyhaded>255)
+					greyhaded=255;
+				greyhaded=Math.floor(greyhaded);
+				
+				var cssColor=this.rgbToHexColor(greyhaded,greyhaded,greyhaded);
+				return cssColor
+			},
+		
+			
+			ShadingColor : function(r,g,b,distance){
+				// Add simple shading so that farther wall slices appear darker.
+				// 750 is arbitrary value of the farthest distance.  
+				dist=Math.floor(distance);
+				var rshaded=r-(dist/350.0)*255.0;
+				var gshaded=g-(dist/350.0)*255.0;
+				var bshaded=b-(dist/350.0)*255.0;
+				// don't allow it to be too dark
+				if (rshaded<0)
+					rshaded=0;
+				if (rshaded>255)
+					rshaded=255;
+				rshaded=Math.floor(rshaded);
+				
+				if (gshaded<0)
+					gshaded=0;
+				if (gshaded>255)
+					gshaded=255;
+				gshaded=Math.floor(gshaded);
+				
+				if (bshaded<0)
+					bshaded=0;
+				if (bshaded>255)
+					bshaded=255;
+				bshaded=Math.floor(bshaded);
+				
+				
+				var cssColor=this.rgbToHexColor(rshaded,gshaded,bshaded);
+				return cssColor
+			},
+			
+			
+			
+			/* Draw the walls from a player
+			defined by its coordinates
+			and a point of view (where he is watching)
+			*/
+			drawWalls : function(xunitplayer,yunitplayer,POVrad,shading){
+			
+					//We get all the distances from the player
+					//to the wall
+					this.ComputeBestWallIntersections(xunitplayer,yunitplayer,POVrad,0,0)
+					//For all the column we draw a vertical line
+					// The column 0 is equal to the ray of 60 degree
+					// of the FOV
+					//Reversely the table distancesToWalls
+					//contains ray distances for ray starting from
+					// 0 degree to 60 degree
+					var y=this.height;	
+					for (var x=0;x<this.width;x++){
+						//distance to the wall
+						var d=this.distancesToWalls[x];
+						//column number
+						var column=this.width-x;
+					  
+						//Height of the projected height
+						var wallheight=this.DistanceProjectionPlane*this.wallsize/d;
+						var halfwallheight=wallheight/2;
+						var ystart=this.CenterProjectionPlaneY-halfwallheight;
+						var yend=this.CenterProjectionPlaneY+halfwallheight;
+						
+						if(shading==1){
+							var cssColor=this.ShadingGrey(255,d);
+						}
+						//this.drawLine(column,ystart,column,yend,cssColor);
+						this.drawFillRectangle(column,ystart,1,yend-ystart,cssColor);
+					}
+				},	
+				
+				
+				
+			
+			/* Find Disance to walls */
+			ComputeOneBestWallIntersection : function(xunitplayer,yunitplayer,rayangle,draw,debug)
+			{
+				this.ComputeTanRayAngle(rayangle);
+				var dv=this.FindWallVertical(xunitplayer,yunitplayer,rayangle,0);
+				var dh=this.FindWallHorizontal(xunitplayer,yunitplayer,rayangle,0);
+				var d=0;
+				if (dh<dv){
+					if(draw==1){
+						xunitplayerminimap=this.fromUnitCoordinatesToMiniMapCoordinates(xunitplayer,1);
+						yunitplayerminimap=this.fromUnitCoordinatesToMiniMapCoordinates(yunitplayer,0);
+						
+						xunitHintersectionminimap=this.fromUnitCoordinatesToMiniMapCoordinates(this.xunitHintersection,1);
+						yunitHintersectionminimap=this.fromUnitCoordinatesToMiniMapCoordinates(this.yunitHintersection,0);
+						
+						
+						this.drawLine(xunitplayerminimap,yunitplayerminimap,xunitHintersectionminimap,yunitHintersectionminimap,'green');
+					}
+					d=this.FishbowlCorrection(dh,rayangle);
+					//d=dh;
+				}else{
+					if(draw==1){
+						xunitplayerminimap=this.fromUnitCoordinatesToMiniMapCoordinates(xunitplayer,1);
+						yunitplayerminimap=this.fromUnitCoordinatesToMiniMapCoordinates(yunitplayer,0);
+						
+						xunitVintersectionminimap=this.fromUnitCoordinatesToMiniMapCoordinates(this.xunitVintersection,1);
+						yunitVintersectionminimap=this.fromUnitCoordinatesToMiniMapCoordinates(this.yunitVintersection,0);
+						
+						this.drawLine(xunitplayerminimap,yunitplayerminimap,xunitVintersectionminimap,yunitVintersectionminimap,'blue');
+					}
+					//d=dv;
+					d=this.FishbowlCorrection(dv,rayangle);
+				}
+				if(debug==1){
+					var str="";
+					console.log("dv="+dv);
+					console.log("dh="+dh);
+					console.log("d="+d);
+					str="dv="+dv+"\ndh="+dh+"\nmin d="+d;
+					return str;
+				}
+				return d;
+			},
+			
+			ComputeBestWallIntersectionsTest : function(draw){
+				var xunitplayer=this.width/2;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2*this.wallsize;
+				var debug=0;
+				var POVdegree=45;
+				var POVrad=this.degreeToRad(POVdegree);
+				this.ComputeBestWallIntersections(xunitplayer,yunitplayer,POVrad,debug,draw);
+					
+			},
+			
+			ComputeBestWallIntersections : function(xunitplayer,yunitplayer,POVrad,debug,draw)
+			{
+				var startangle=POVrad-this.HalfFOVrad;
+				var endangle=POVrad+this.HalfFOVrad;
+				var i=0
+				var str="";
+				for (var rayangle=startangle; rayangle<endangle; rayangle=rayangle+this.AngleRadByColumn)
+				{
+					var d=this.ComputeOneBestWallIntersection(xunitplayer,yunitplayer,rayangle,draw,0);
+					
+					this.distancesToWalls[i]=d;
+					i=i+1;
+					if(debug==1){
+						str+="i="+i+"   min d="+d+"\n";
+					}
+				}
+				if(debug==1){
+					return str;
+				}
+				return 1;
+			},
+			
+			drawallintersection : function()
+			{
+				var xunitplayer=this.width/2;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2*this.wallsize;
+				var debug=1;
+				var POVdegree=45;
+				var POVrad=this.degreeToRad(POVdegree);
+				var startangle=POVrad-this.HalfFOVrad;
+				var endangle=POVrad+this.HalfFOVrad;
+				var nbangles = this.width;
+				var i=0
+				str="";
+				for (var rayangle=startangle; rayangle<endangle; rayangle=rayangle+this.AngleRadByColumn)
+				{
+					var dv=this.FindWallVertical(xunitplayer,yunitplayer,rayangle,debug);
+					var dh=this.FindWallHorizontal(xunitplayer,yunitplayer,rayangle,debug);
+					var d=Math.min(dv,dh);
+					this.distancesToWalls[i]=d;
+					console.log("i="+i);
+					console.log("d="+d);
+					str+="i="+i+"   min d="+d+"\n";
+					i=i+1;
+				}
+				return str;
+				
+
+			},
+			
+			drawMiniMapRectangle: function(){
+			
+				xstart=this.xminimapoffset;
+				ystart=this.yminimapoffset;
+				this.drawFillRectangle(xstart,ystart,this.minimapdisplaywidth,this.minimapdisplayheight,"blue");
+				
+			}
+		}
+		
+		var canvas = document.getElementById("gameCanvas");
+		var story = document.getElementById("story");
+		
+		
+		var gameWindow=new GameWindow(canvas);
+		gameWindow.start();
+		
+		
+		
+	</script>	
+</html>

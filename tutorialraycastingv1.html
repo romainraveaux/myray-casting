@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Ray Casting Tutorial</title>
+      
+
+    </head>
+
+    <body>
+	<h1>About this tutorial</h1>
+	<li> Author : Romain Raveaux
+	<li> Web Site : <a href ="http://romain.raveaux.free.fr" >http://romain.raveaux.free.fr</a>
+	<li> This is a ray casting tutorial. 
+	<li> The goal is to understand what is "ray casting" along with some piece of code (HTM5/Java Script).
+	<li> Latter, we want to use this technique to render a work site or a school.
+	<li> This tutorial serves as a basis for student projects.
+	
+	<h1>The origin of this tutorial</h1>
+	<li> <b>Many ideas and illustrations come from this web site.</b>
+	<ol>
+	<a href="https://permadi.com/1996/05/ray-casting-tutorial-table-of-contents/">https://permadi.com/1996/05/ray-casting-tutorial-table-of-contents/</a></ol></li>
+	<li> We thank the author of this tutorial.</li>
+	<h2>At the end you should get something like that :</h2>
+	<li> <a href="step12.html">The final step --> step12.html</a></li>
+	<li> <a href="https://gitlab.com/romain.raveaux/myray-casting/">My code on git lab</a></li>
+	
+
+		
+	
+	<h1>Why this tutorial ? </h1>
+	<li> My tutorial differs from the original one by different aspects :</li>
+	<ol>
+	<li>Explanations come with pieces of codes to illustrate the explained notions</li>
+	<li>The code is decomposed into many readable functions. The code is less optimized than the original one but we hope it is more readable.</li>
+	<li>The code is scalable to different screen resolutions by changing the Canvas size.</li>
+	</ol>
+	<h1>What is ray casting</h1>
+	Ray-casting is a pseudo 3-dimensional rendering technique that are very popular in game development arena in the 90s.
+	Although ray-casting has been supplanted by newer and more powerful techniques (and hardware!), the reader can hopefully still benefit from the technique.  
+	Ray-casting sensation began with the release of a game, Wolfenstein 3D (iD Software), in 1992. In Wolfenstein 3D, the player is placed on a three dimensional maze-like environment, where he/she must find an exit while battling multiple opponents. Wolfenstein 3D becomes an instant classic for its fast and smooth animation. What enables this kind of animation is an innovative approach to three dimensional rendering known as “ray-casting.” Wolfenstein 3D was developed and created by Id Software. Henceforth, Id’s programmer, John Carmack, might well be the person who initiates the ray-casting sensation.
+<br>
+<img src="./figures/fig17.png" alt=""/>
+<br>
+	<h2>WHAT IS RAY-CASTING?</h2>
+Ray-casting is a technique that transform a limited form of data (a very simplified map or floor plan) into a 3D projection by tracing rays from the view point into the viewing volume.
+
+<br>
+<img src="./figures/fig18.png" alt=""/>
+<br>
+<br>
+<img src="./figures/fig19.png" alt=""/>
+<br>
+	<h2> More details are given in the original tutorial : </h2>
+<a href="https://permadi.com/1996/05/ray-casting-tutorial-table-of-contents/
+">https://permadi.com/1996/05/ray-casting-tutorial-table-of-contents/</a>
+
+<h1> What's on this tutorial:</h1>
+<li>An introduction to the HTML 5</li>
+<li>Wall finding</li>
+<li>Fishbowl / distortion corrections</h1>
+<li> Simple flat wall shading</h1>
+<li> Rendering of simple (static) ground and sky</h1>
+<li> Movement handling</h1>
+
+		<h1> Step 1 : CREATING A WORLD</h1>
+	<h2>It starts with a canvas</h2>
+	<li>The width is 320 pixels.
+	<li>The height is 200 pixels.
+	<li>Let us create the canvas : 
+	<pre><code>
+    	&lt; canvas id="gameCanvas" width="320" height="200"&gt;
+            
+        &lt;/canvas&gt;
+	</code></pre>	
+	<li>Let us get a variable of type "Canvas" to use it.
+	<pre><code>
+		&lt;script&gt;
+		var canvas = document.getElementById("gameCanvas");
+		var gameWindow=new GameWindow(canvas);
+		gameWindow.start();
+		&lt;/script&gt;
+	</code></pre>	
+	<li>GameWindow is our class the code will be located.
+	<li> The constructor of the class retrieve basic information:
+	<pre><code>
+			function GameWindow(canvas) {
+				// create the main canvas
+				this.width = canvas.width;
+				this.height = canvas.height;  
+				this.canvas = canvas;  
+				this.context = this.canvas.getContext( '2d' );
+				this.animationFrameID;			
+			}
+	</code></pre>	
+	
+	
+	<li> We need a function to tranform RGB color vector to CSS hexadecimal color
+	<pre><code>
+			rgbToHexColor : function(red, green, blue) 
+			{
+				var result="#"+
+					red.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})+""+
+					green.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})+""+
+					blue.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false});
+				return result;
+			},
+	</code></pre>	
+	
+	<li> We need to define basic functions to draw lines on the canvas.
+	<pre><code>
+			drawLine: function(startX, startY, endX, endY, cssColor)
+			{
+				this.context.strokeStyle  = cssColor; 
+				this.context.beginPath();
+				this.context.moveTo(startX, startY);
+				this.context.lineTo(endX, endY);	
+				this.context.stroke();	
+			},	
+	</code></pre>	
+
+	<li>Let us draw a vertical line at the middle (Colum 300)
+	
+	<pre><code>
+				x=this.width/2	
+				
+				this.drawLine(x,0,x,this.height,cssColor);			
+	</code></pre>
+				
+<li> Let us draw the borders of the canvas: 
+<pre><code>
+				//Left border
+				this.drawLine(0,0,0,this.height,cssColor);			
+				//Right border
+				this.drawLine(this.width,0,this.width,this.height,cssColor);			
+				//Up border
+				this.drawLine(0,0,this.width,0,cssColor);			
+				//Down border
+				this.drawLine(0,this.height,this.width,this.height,cssColor);					
+				
+</code></pre>
+	
+	
+	<canvas id="gameCanvas" width="640" height="480">
+            <!-- Insert fallback content here -->
+        </canvas>
+		
+		<h1>Next: Step 2 DEFINING PROJECTION ATTRIBUTES</h1>
+		<li> <a href="step2.html">step2.html</a>
+    </body>
+
+	
+	<script>
+	function GameWindow(canvas) {
+			// create the main canvas
+			this.width = canvas.width;
+			this.height = canvas.height;  
+			this.canvas = canvas;  
+			this.context = this.canvas.getContext( '2d' );
+			this.animationFrameID;			
+		}
+		
+		GameWindow.prototype = 
+		{
+			drawLine: function(startX, startY, endX, endY, cssColor)
+			{
+				//console.log("cssColor="+cssColor);
+				this.context.strokeStyle  = cssColor; 
+				this.context.beginPath();
+				this.context.moveTo(startX, startY);
+				this.context.lineTo(endX, endY);	
+				this.context.stroke();	
+			},
+		
+			rgbToHexColor : function(red, green, blue) 
+			{
+				var result="#"+
+					red.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})+""+
+					green.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})+""+
+					blue.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false});
+				return result;
+			},
+			
+			start : function()
+			{
+
+				var cssColor=this.rgbToHexColor(255, 125, 225);
+				x=this.width/2
+				console.log("x="+x);
+				this.drawLine(x,0,x,this.height,cssColor);			
+				
+				var cssColor=this.rgbToHexColor(0, 0, 0);
+				//Left border
+				this.drawLine(0,0,0,this.height,cssColor);			
+				//Right border
+				this.drawLine(this.width,0,this.width,this.height,cssColor);			
+				//Up border
+				this.drawLine(0,0,this.width,0,cssColor);			
+				//Down border
+				this.drawLine(0,this.height,this.width,this.height,cssColor);			
+				
+				
+			}
+		}
+		
+		var canvas = document.getElementById("gameCanvas");
+		
+		
+		var gameWindow=new GameWindow(canvas);
+		gameWindow.start();
+		
+	</script>	
+</html>

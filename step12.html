@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Ray Casting Tutorial</title>
+		<script src="rcv1.js"></script>
+    </head>
+
+    <body>
+	<h1>Step 12 : Ray Casting V1</h1>
+
+<li>All the code is put in a Java Script file named : rcv1.js </li>
+
+		<canvas id="gameCanvas" width="800" height="600">
+            <!-- Insert fallback content here -->
+        </canvas>
+		<p><button onclick="goFullScreen();">Go Fullscreen</button></p>
+
+<br>
+		
+		<h1>Back: Step 11</h1>
+		<li> <a href="step11.html">step11.html</a>
+		
+    </body>
+
+	
+	<script>
+	
+	function goFullScreen(){
+		var canvas = document.getElementById("gameCanvas");
+		if(canvas.requestFullScreen)
+			canvas.requestFullScreen();
+		else if(canvas.webkitRequestFullScreen)
+			canvas.webkitRequestFullScreen();
+		else if(canvas.mozRequestFullScreen)
+			canvas.mozRequestFullScreen();
+	}
+		
+		var canvas = document.getElementById("gameCanvas");
+		//var story = document.getElementById("story");
+		
+		
+		var gameWindow=new GameWindow(canvas);
+		gameWindow.start();
+		
+		
+		
+	</script>	
+</html>

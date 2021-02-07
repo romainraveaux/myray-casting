@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Ray Casting Tutorial</title>
+
+    </head>
+
+    <body>
+	<h1>Step 4 : FINDING DISTANCE TO WALLS</h1>
+	
+	There are several ways to find the distance from the player to the wall slice. They are illustrated below.
+	<br>
+	<img src="./figures/fig12.png" alt=""/>
+	<br>
+	
+	The sine or cosine functions are cheaper to implement because they can be pre-computed and put into tables. This can be done because ALPHA (player’s POV=Point of View) has to be between 0 to 360 degrees, so the number of possibilities are limited (the square root method has a virtually unlimited possible values for the x’s and y’s).
+	
+	In our code, we chose the Pythogerean theorem. The distance is the Euclidean distance between two points. We chose this because it was simple to implement and because so far we did not put angles into a look up table.
+	
+	At the moment, we focus on an easy implementation of the ray casting method. We will see later if optimizations are needed.  
+<pre><code>
+
+			
+			//ComputeDistance
+			EuclideanDistanceBetweenPoints: function(xunitplayer,yunitplayer,xaunitplayer,yaunitplayer)
+			{
+				var x=(xunitplayer-xaunitplayer);
+				xsquare=x*x;
+				
+				var y=(yunitplayer-yaunitplayer);
+				ysquare=y*y;
+				var dist=Math.sqrt(xsquare+ysquare);
+				return dist;
+				
+			},
+			
+			drawoneintersection : function()
+			{
+				var xunitplayer=this.width/2-32;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2.5*this.wallsize;
+				var debug=1;
+				
+				var rayangle=this.degreeToRad(30);
+				this.ComputeTanRayAngle(rayangle);
+				var dv=this.FindWallVertical(xunitplayer,yunitplayer,rayangle,debug);
+				var dh=this.FindWallHorizontal(xunitplayer,yunitplayer,rayangle,debug);
+				var d=Math.min(dv,dh);
+				var str="";
+				console.log("dv="+dv);
+				console.log("dh="+dh);
+				console.log("d="+d);
+				str="dv="+dv+"\ndh="+dh+"\nmin d="+d;
+				return str;
+				
+			},
+			
+
+</code></pre> 
+
+<canvas id="gameCanvas" width="640" height="480">
+            <!-- Insert fallback content here -->
+        </canvas>
+<br>
+		<textarea id="story" name="story"
+          rows="5" cols="33">
+		dsdsqdqs
+		</textarea>
+
+		<br>
+<li> Let us draw vertical and horizontal intersections for all the FOV (Field Of View=60 degrees) at a given POV (Point Of View=45 degrees). <br>
+
+<pre><code>
+
+			drawallintersection : function()
+			{
+				var xunitplayer=this.width/2;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2*this.wallsize;
+				var debug=1;
+				var POVdegree=45;
+				var POVrad=this.degreeToRad(POVdegree);
+				var startangle=POVrad-this.HalfFOVrad;
+				var endangle=POVrad+this.HalfFOVrad;
+				var nbangles = this.width;
+				var distances=new Array(nbangles);
+				var i=0
+				str="";
+				for (var rayangle=startangle; rayangle &lt;endangle; rayangle=rayangle+this.AngleRadByColumn)
+				{
+					this.ComputeTanRayAngle(rayangle);
+					var dv=this.FindWallVertical(xunitplayer,yunitplayer,rayangle,debug);
+					var dh=this.FindWallHorizontal(xunitplayer,yunitplayer,rayangle,debug);
+					var d=Math.min(dv,dh);
+					distances[i]=d;
+					console.log("i="+i);
+					console.log("d="+d);
+					str+="i="+i+"   min d="+d+"\n";
+					i=i+1;
+				}
+				return str;
+				
+			}
+
+</code></pre> 
+
+
+		<canvas id="gameCanvas1" width="640" height="480">
+            <!-- Insert fallback content here -->
+        </canvas>
+<br>
+		<textarea id="story1" name="story1"
+          rows="5" cols="33">
+		dsdsqdqs
+		</textarea>
+
+		<br>
+		
+		<li> Let us draw only the shortest vertical or horizontal intersection for all the FOV (Field Of View=60 degrees) at a given POV (Point Of View=45 degrees). <br>
+		
+		<pre><code>
+			drawBestWallintersection : function(xunitplayer,yunitplayer,rayangle,csscolor,debug)
+			{
+				var dv=this.FindWallVertical(xunitplayer,yunitplayer,rayangle,debug);
+				var dh=this.FindWallHorizontal(xunitplayer,yunitplayer,rayangle,debug);
+				var d=0;
+				if (dh&lt;dv){
+					this.drawLine(xunitplayer,yunitplayer,this.xunitHintersection,this.yunitHintersection,'green');
+					d=dh;
+				}else{
+					this.drawLine(xunitplayer,yunitplayer,this.xunitVintersection,this.yunitVintersection,'blue');
+					d=dv;
+				}
+				
+				return d;
+			},
+			
+		
+		
+		drawallBestintersections : function()
+			{
+				var xunitplayer=this.width/2-32;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2.5*this.wallsize;
+				var debug=1;
+				var POVdegree=45;
+				var POVrad=this.degreeToRad(POVdegree);
+				var startangle=POVrad-this.HalfFOVrad;
+				var endangle=POVrad+this.HalfFOVrad;
+				var nbangles = this.width;
+				var distances=new Array(nbangles);
+				var i=0
+				str="";
+				for (var rayangle=startangle; rayangle&lt;endangle; rayangle=rayangle+this.AngleRadByColumn)
+				{
+					this.ComputeTanRayAngle(rayangle);
+					d=this.drawBestWallintersection(xunitplayer,yunitplayer,rayangle,"green",0);
+					str+="i="+i+"   min d="+d+"\n";
+					i=i+1;
+				}
+				return str;
+			},
+			</code></pre> 
+
+		<canvas id="gameCanvas2" width="640" height="480">
+            <!-- Insert fallback content here -->
+        </canvas>
+<br>
+		<textarea id="story2" name="story2"
+          rows="5" cols="33">
+		dsdsqdqs
+		</textarea>
+
+		<br>
+
+
+		<br>
+		
+		<h1>Next: Step 5 : DRAW THE WALLS</h1>
+		<li> <a href="step5.html">step5.html</a>
+		<h1>Back: Step 3</h1>
+		<li> <a href="step3.html">step3.html</a>
+		
+    </body>
+
+	
+	<script>
+	function GameWindow(canvas) {
+			// create the main canvas
+			this.width = canvas.width;
+			this.height = canvas.height;  
+			this.canvas = canvas;  
+			this.context = this.canvas.getContext( '2d' );
+			this.animationFrameID;	
+
+			//PROJECTION ATTRIBUTES
+			this.FOV=60
+			this.FOVrad=this.degreeToRad(this.FOV)
+			this.HalfFOV=this.FOV/2
+			this.HalfFOVrad=this.degreeToRad(this.HalfFOV)
+			this.CenterProjectionPlaneX=this.width/2
+			this.CenterProjectionPlaneY=this.height/2
+			this.DistanceProjectionPlane=this.CenterProjectionPlaneX/Math.tan(this.HalfFOVrad)
+			this.AngleRadByColumn=this.FOVrad/this.width			
+			console.log("DistanceProjectionPlane="+this.DistanceProjectionPlane);
+			
+			// Size of a wall = 64 pixels
+			this.wallsize=64
+			
+			// 2 dimensional map
+			this.fMap=[];
+			this.MAP_WIDTH=6+3;
+			this.MAP_HEIGHT=6+1; 
+			
+			
+			
+			//Coordinates of the Wall intersections points. Horizontal and Vertical intersections.
+			this.xunitHintersection=-1;
+			this.yunitHintersection=-1;
+			
+			this.xunitVintersection=-1;
+			this.yunitVintersection=-1;
+			
+			//Tan of the rayangle
+			this.tanrayangle=-1;
+		}
+		
+		GameWindow.prototype = 
+		{
+		
+			xytoindex: function(x,y,width)
+			{
+				index = x + width*y;
+				return index;
+			},
+			
+			drawFillRectangle: function(x, y, width, height, cssColor)
+			{
+				this.context.fillStyle = cssColor; 
+				this.context.beginPath();
+				this.context.rect(x, y, width, height);
+				this.context.closePath();
+				this.context.fill();		
+			},
+			
+			
+			drawGrid: function()
+			{
+				
+				//Draw vertical axis
+				cssColor="blue";
+				for (var x=0; x<this.width; x=x+this.wallsize)
+				{
+					this.drawLine(x,0,x,this.height,cssColor);			
+				}
+				
+				//Draw horizontal axis
+				for (var y=0; y<this.height; y=y+this.wallsize)
+				{
+					this.drawLine(0,y,this.width,y,cssColor);			
+				}	
+			},
+			
+			drawMap: function()
+			{
+				// CREATE A SIMPLE MAP.
+				// Use string for elegance (easier to see).  W=Wall, O=Opening
+				var map=
+							'WWWWWWWWW'+
+							'WOOOOOOOW'+
+							'WOOOOOOOW'+
+							'WOOOOOOOW'+
+							'WOOOOOOOW'+
+							'WOOOOOOOW'+
+							'WWWWWWWWW';
+				// Remove spaces and tabs
+				this.fMap=map.replace(/\s+/g, '');	
+
+				for (var y=0; y<this.MAP_HEIGHT; y++)
+				{
+					for (var x=0; x<this.MAP_WIDTH; x++)
+					{
+						var cssColor="white";
+						index=this.xytoindex(x,y,this.MAP_WIDTH);
+						if (this.fMap.charAt(index)=="W")
+						{
+							cssColor="black";
+						}
+						else
+						{
+						}
+						
+						this.drawFillRectangle(x*this.wallsize,
+					y*this.wallsize, this.wallsize, this.wallsize, cssColor);
+					}
+				}
+				
+			},
+			//*******************************************************************//
+			//* Convert arc (degree) to radian
+			//*******************************************************************//
+			degreeToRad: function(arcAngle)
+			{
+				return ((arcAngle*Math.PI)/180);    
+			},
+			
+			drawLine: function(startX, startY, endX, endY, cssColor)
+			{
+				//console.log("cssColor="+cssColor);
+				this.context.strokeStyle  = cssColor; 
+				this.context.beginPath();
+				this.context.moveTo(startX, startY);
+				this.context.lineTo(endX, endY);	
+				this.context.stroke();	
+			},
+			
+
+		
+			rgbToHexColor : function(red, green, blue) 
+			{
+				var result="#"+
+					red.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})+""+
+					green.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})+""+
+					blue.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false});
+				return result;
+			},
+			
+			drawBorder : function()
+			{
+
+				//var cssColor=this.rgbToHexColor(255, 125, 225);
+				//x=this.width/2
+				//console.log("x="+x);
+				//this.drawLine(x,0,x,this.height,cssColor);			
+				
+				var cssColor=this.rgbToHexColor(0, 0, 0);
+				//Left border
+				this.drawLine(0,0,0,this.height,cssColor);			
+				//Right border
+				this.drawLine(this.width,0,this.width,this.height,cssColor);			
+				//Up border
+				this.drawLine(0,0,this.width,0,cssColor);			
+				//Down border
+				this.drawLine(0,this.height,this.width,this.height,cssColor);			
+				
+				
+			},
+			
+			drawPlayer : function()
+			{
+							
+				var xunitplayer=this.width/2-32;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2.5*this.wallsize;
+				this.drawFillRectangle(xunitplayer,yunitplayer, this.wallsize/8, this.wallsize/8, "red");
+			},
+			
+			drawFOV : function()
+			{
+				var gap=this.DistanceProjectionPlane-this.height+(this.wallsize/2)
+				
+				this.drawLine(this.width/2,
+					this.DistanceProjectionPlane,0,0,"green");
+					
+				this.drawLine(this.width/2,
+					this.DistanceProjectionPlane,this.width-1,0,"green");
+					
+					this.drawLine(this.width/2,
+					this.DistanceProjectionPlane-gap,0,-gap,"blue");
+					
+				this.drawLine(this.width/2,
+					this.DistanceProjectionPlane-gap,this.width-1,-gap,"blue");
+					
+			},
+			
+			//Precompute tan(rayangle)
+			//This value will be used 4 times
+			//So we can store it
+			ComputeTanRayAngle: function(rayangle)
+			{
+				this.tanrayangle=Math.tan(rayangle);
+			},
+			
+			//Find Ya
+			//For the horizontal case, the height
+			//is always the height the wall 
+			findYaHorizontal: function(rayangle)
+			{
+				// Ray is facing up
+				if (rayangle > 0 && rayangle < Math.PI)
+				{
+					return -this.wallsize;
+				}else
+				{
+					// Ray is facing down
+					return this.wallsize;
+				}
+				
+			},
+
+			//Find the Y coordinate of A
+			//We first need to find the grid coordinates
+			//of the player 
+			//Then we multiply the grid coordinates by the wall size
+			findYofPointAHorizontal: function(rayangle,xunitplayer,yunitplayer,Ya)
+			{
+				var ygridplayer= Math.floor(yunitplayer/this.wallsize);
+				var yaunitplayer;
+				if (Ya<0){
+					yaunitplayer=(ygridplayer*this.wallsize)-1;
+				}else{
+					yaunitplayer=(ygridplayer*this.wallsize)+this.wallsize;
+				}
+				
+				return yaunitplayer;
+			},
+			
+			//Find Xa
+			//We find Xa according to the trigonometry formula
+			findXaHorizontal: function(rayangle)
+			{	
+				var xaunit=this.wallsize/(this.tanrayangle);
+				var res=Math.floor(xaunit);
+				
+				// Ray is facing up
+				if (rayangle > 0 && rayangle < Math.PI)
+				{
+					return res;
+				}else
+				{
+					// Ray is facing down
+					return -res;
+				}
+				
+				return res;
+			},
+			
+			//Find the X coordinate of A
+			//For the first point.
+			//The height is not the wall height in that case
+			//but the difference between Y of the player and Y of the Horizontal hit.
+			findXofPointAHorizontal: function(rayangle,xunitplayer,yunitplayer,yaunitplayer)
+			{
+				var xaunitplayer = xunitplayer+(yunitplayer-yaunitplayer)/this.tanrayangle;
+				
+				return Math.floor(xaunitplayer);
+			},
+			
+			computeNextIntersectionX: function (rayangle,xaunitplayer,yaunitplayer,xaunit,yaunit)
+			{
+				var xcunitplayer=xaunitplayer+xaunit;
+				return xcunitplayer;
+				
+			},
+			
+			computeNextIntersectionY: function (rayangle,xaunitplayer,yaunitplayer,xaunit,yaunit)
+			{
+				
+				var ycunitplayer=yaunitplayer+yaunit;
+				return ycunitplayer;
+			},
+			
+			
+			//Is A a wall ?
+			CheckIfWall: function(xaunitplayer,yaunitplayer)
+			{
+				var xagridplayer=Math.floor(xaunitplayer/this.wallsize);
+				var yagridplayer=Math.floor(yaunitplayer/this.wallsize);
+				var index=this.xytoindex(xagridplayer,yagridplayer,this.MAP_WIDTH);
+				if (this.fMap.charAt(index)=="W")
+				{
+					return 1;
+				}
+				else
+				{
+					return 0;
+				}
+			},
+			
+			//ComputeDistance
+			EuclideanDistanceBetweenPoints: function(xunitplayer,yunitplayer,xaunitplayer,yaunitplayer)
+			{
+				var x=(xunitplayer-xaunitplayer);
+				xsquare=x*x;
+				
+				var y=(yunitplayer-yaunitplayer);
+				ysquare=y*y;
+				var dist=Math.sqrt(xsquare+ysquare);
+				return dist;
+				
+			},
+			
+			//Compute the horizontal intersection point to a wall 
+			//and the distance between player and the intersection
+			FindWallHorizontal: function(xunitplayer,yunitplayer,rayangle,debug)
+			{	
+				var distance = Number.MAX_VALUE;
+				
+				var Ya=this.findYaHorizontal(rayangle);
+				
+				var Xa=this.findXaHorizontal(rayangle);
+				
+				var Ay=this.findYofPointAHorizontal(rayangle,xunitplayer,yunitplayer,Ya);
+				
+				var Ax=this.findXofPointAHorizontal(rayangle,xunitplayer,yunitplayer,Ay);
+				
+				
+				if(debug==1)
+				{
+					console.log("Ya="+Ya);
+					console.log("Xa="+Xa);
+					console.log("xunitplayer="+xunitplayer);
+					console.log("yunitplayer="+yunitplayer);
+					console.log("Ax="+Ax);
+					console.log("Ay="+Ay);
+				}
+				
+				
+				
+				if(Ay>=0 && Ay<this.height
+				&& Ax>=0 && Ax<this.width){
+					if(debug==1)
+					{
+						this.drawLine(xunitplayer,
+							yunitplayer,Ax,Ay,"green");
+						this.drawFillRectangle(Ax,Ay, this.wallsize/8, this.wallsize/8, "purple");
+					}
+					var wallhit=this.CheckIfWall(Ax,Ay);
+				
+					if (wallhit==1){
+						 distance=this.EuclideanDistanceBetweenPoints(xunitplayer,yunitplayer,Ax,Ay);
+						if(debug==1)
+						{
+							console.log("distance="+distance);
+							console.log("wallhit="+wallhit);
+						}
+						this.xunitHintersection=Ax;
+						this.yunitHintersection=Ay;
+						return distance;
+					}
+				}
+					
+				var xold=Ax;
+				var yold=Ay;
+				while(wallhit != 1 && yold>=0 && yold<this.height
+				&& xold>=0 && xold<this.width){
+					var xnew=this.computeNextIntersectionX (rayangle,xold,yold,Xa,Ya);
+					var ynew=this.computeNextIntersectionY (rayangle,xold,yold,Xa,Ya);
+					wallhit=this.CheckIfWall(xnew,ynew);
+					
+					if(debug==1)
+					{
+						this.drawLine(xunitplayer,
+							yunitplayer,xnew,ynew,"green");
+							this.drawFillRectangle(xnew,ynew, this.wallsize/8, this.wallsize/8, "purple");
+							console.log("xnew="+xnew);
+							console.log("ynew="+ynew);
+				
+					}
+					
+					xold=xnew;
+					yold=ynew;
+				}
+				
+				if (wallhit==1){
+					distance=this.EuclideanDistanceBetweenPoints(xunitplayer,yunitplayer,xold,yold);
+					if(debug==1)
+					{
+						console.log("distance="+distance);
+						console.log("wallhit="+wallhit);
+						
+						this.drawFillRectangle(xold,yold, this.wallsize/8, this.wallsize/8, "purple");
+				
+					}
+					this.xunitHintersection=xold;
+					this.yunitHintersection=yold;
+					return distance;
+				}
+				this.xunitHintersection=-1;
+				this.yunitHintersection=-1;
+				return distance;
+	
+			},
+			
+			DisplayFindWallHorizontal : function()
+			{
+				var xunitplayer=this.width/2-32;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2.5*this.wallsize;
+				var debug=1;
+					
+				for (var angle=0; angle<360; angle=angle+15)
+				{
+					var rayangle=this.degreeToRad(angle);
+					this.ComputeTanRayAngle(rayangle);
+					this.FindWallHorizontal(xunitplayer,yunitplayer,rayangle,debug);
+				}
+				
+				
+			},
+			
+						/**********************
+			Vertical Intersection
+			**********************/
+			
+			//Find Ya Vertical
+			findYaVertical: function(rayangle)
+			{
+				var Ya=this.wallsize*this.tanrayangle;
+				if (rayangle >= Math.PI/2 && rayangle < (3*Math.PI/2))
+				{
+					
+				}else{
+					Ya=-Ya;
+				}
+				return Math.floor(Ya);
+				
+			},
+			
+			//Find Xa
+			findXaVertical: function(rayangle)
+			{
+				// Ray is facing left
+				if (rayangle >= Math.PI/2 && rayangle < (3*Math.PI/2))
+				{
+					return -this.wallsize;
+				}else
+				{
+					// Ray is facing right
+					return this.wallsize;
+				}
+				
+			},
+			
+			//Find the X coordinate of A
+			//We first need to find the grid coordinates
+			//of the player 
+			//Then we multiply the grid coordinates by the wall size
+			findXofPointAVertical: function(rayangle,xunitplayer,yunitplayer,Xa)
+			{
+				var xgridplayer= Math.floor(xunitplayer/this.wallsize);
+				var xaunitplayer;
+				if (Xa<0){
+					xaunitplayer=(xgridplayer*this.wallsize)-1;
+				}else{
+					xaunitplayer=(xgridplayer*this.wallsize)+Xa;
+				}
+				return xaunitplayer;
+			},
+			
+			//Find the Y coordinate of A
+			//For the first point.
+			//The width is not the wall width in that case
+			//but the difference between X of the player and X of the Vertical hit.
+			findYofPointAVertical: function(rayangle,xunitplayer,yunitplayer,xaunitplayer)
+			{
+				var yaunitplayer=yunitplayer+((xunitplayer-xaunitplayer)*this.tanrayangle);
+				
+				return Math.floor(yaunitplayer);
+			},
+			
+			//Compute the vertical intersection point to a wall 
+			//and the distance between player and the intersection
+			FindWallVertical: function(xunitplayer,yunitplayer,rayangle,debug)
+			{	
+				var distance = Number.MAX_VALUE;
+				var Ya=this.findYaVertical(rayangle);
+				
+				var Xa=this.findXaVertical(rayangle);
+				
+				var Ax=this.findXofPointAVertical(rayangle,xunitplayer,yunitplayer,Xa);
+	
+				var Ay=this.findYofPointAVertical(rayangle,xunitplayer,yunitplayer,Ax);
+				
+				if(debug==1)
+				{
+					console.log("Ya="+Ya);
+					console.log("Xa="+Xa);
+					console.log("xunitplayer="+xunitplayer);
+					console.log("yunitplayer="+yunitplayer);
+					console.log("Ax="+Ax);
+					console.log("Ay="+Ay);
+				}
+				
+				if(Ay>=0 && Ay<this.height
+				&& Ax>=0 && Ax<this.width){
+					if(debug==1)
+					{
+						this.drawLine(xunitplayer,
+							yunitplayer,Ax,Ay,"green");
+						this.drawFillRectangle(Ax,Ay, this.wallsize/8, this.wallsize/8, "purple");
+					}
+					var wallhit=this.CheckIfWall(Ax,Ay);
+				
+					if (wallhit==1){
+						 distance=this.EuclideanDistanceBetweenPoints(xunitplayer,yunitplayer,Ax,Ay);
+						if(debug==1)
+						{
+							console.log("distanceVertical="+distance);
+							console.log("wallhit="+wallhit);
+						}
+						this.xunitVintersection=Ax;
+						this.yunitVintersection=Ay;
+						return distance;
+					}
+				}
+				
+				var xold=Ax;
+				var yold=Ay;
+				
+				while(wallhit != 1 && yold>=0 && yold<this.height
+				&& xold>=0 && xold<this.width){
+					var xnew=this.computeNextIntersectionX (rayangle,xold,yold,Xa,Ya);
+					var ynew=this.computeNextIntersectionY (rayangle,xold,yold,Xa,Ya);
+					wallhit=this.CheckIfWall(xnew,ynew);
+					
+					if(debug==1)
+					{
+						this.drawLine(xunitplayer,
+							yunitplayer,xnew,ynew,"green");
+							this.drawFillRectangle(xnew,ynew, this.wallsize/8, this.wallsize/8, "purple");
+							console.log("xnew="+xnew);
+							console.log("ynew="+ynew);
+				
+					}
+					
+					xold=xnew;
+					yold=ynew;
+				}
+				
+				if (wallhit==1){
+					distance=this.EuclideanDistanceBetweenPoints(xunitplayer,yunitplayer,xold,yold);
+					if(debug==1)
+					{
+						console.log("distance="+distance);
+						console.log("wallhit="+wallhit);
+						
+						this.drawFillRectangle(xold,yold, this.wallsize/8, this.wallsize/8, "purple");
+				
+					}
+					this.xunitVintersection=xold;
+					this.yunitVintersection=yold;
+					return distance;
+				}
+				
+				this.xunitVintersection=-1;
+				this.yunitVintersection=-1;
+				return distance;
+	
+			},
+			
+			DisplayFindWallVertical : function()
+			{
+				var xunitplayer=this.width/2-32;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2.5*this.wallsize;
+				var debug=1;
+				
+				for (var angle=0; angle<360; angle=angle+15)
+				{
+					var rayangle=this.degreeToRad(angle);
+					this.ComputeTanRayAngle(rayangle);
+					this.FindWallVertical(xunitplayer,yunitplayer,rayangle,debug);
+				}
+				
+			},
+			
+			drawoneintersection : function()
+			{
+				var xunitplayer=this.width/2-32;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2.5*this.wallsize;
+				var debug=1;
+				
+				var rayangle=this.degreeToRad(30);
+				this.ComputeTanRayAngle(rayangle);
+				var dv=this.FindWallVertical(xunitplayer,yunitplayer,rayangle,debug);
+				var dh=this.FindWallHorizontal(xunitplayer,yunitplayer,rayangle,debug);
+				var d=Math.min(dv,dh);
+				var str="";
+				console.log("dv="+dv);
+				console.log("dh="+dh);
+				console.log("d="+d);
+				str="dv="+dv+"\ndh="+dh+"\nmin d="+d;
+				return str;
+				
+			},
+			
+			drawBestWallintersection : function(xunitplayer,yunitplayer,rayangle,csscolor,debug)
+			{
+				this.ComputeTanRayAngle(rayangle);
+				var dv=this.FindWallVertical(xunitplayer,yunitplayer,rayangle,debug);
+				var dh=this.FindWallHorizontal(xunitplayer,yunitplayer,rayangle,debug);
+				var d=0;
+				if (dh<dv){
+					this.drawLine(xunitplayer,yunitplayer,this.xunitHintersection,this.yunitHintersection,'green');
+					d=dh;
+				}else{
+					this.drawLine(xunitplayer,yunitplayer,this.xunitVintersection,this.yunitVintersection,'blue');
+					d=dv;
+				}
+				if(debug==1){
+					var str="";
+					console.log("dv="+dv);
+					console.log("dh="+dh);
+					console.log("d="+d);
+					str="dv="+dv+"\ndh="+dh+"\nmin d="+d;
+					return str;
+				}
+				return d;
+			},
+			
+			drawallBestintersections : function()
+			{
+				var xunitplayer=this.width/2-32;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2.5*this.wallsize;
+				var debug=1;
+				var POVdegree=45;
+				var POVrad=this.degreeToRad(POVdegree);
+				var startangle=POVrad-this.HalfFOVrad;
+				var endangle=POVrad+this.HalfFOVrad;
+				var nbangles = this.width;
+				var distances=new Array(nbangles);
+				var i=0
+				str="";
+				for (var rayangle=startangle; rayangle<endangle; rayangle=rayangle+this.AngleRadByColumn)
+				{
+					
+					d=this.drawBestWallintersection(xunitplayer,yunitplayer,rayangle,"green",0);
+					str+="i="+i+"   min d="+d+"\n";
+					i=i+1;
+				}
+				return str;
+			},
+			
+			drawallintersection : function()
+			{
+				var xunitplayer=this.width/2-32;
+				var yunitplayer=this.MAP_HEIGHT*this.wallsize-2.5*this.wallsize;
+				var debug=1;
+				var POVdegree=45;
+				var POVrad=this.degreeToRad(POVdegree);
+				var startangle=POVrad-this.HalfFOVrad;
+				var endangle=POVrad+this.HalfFOVrad;
+				var nbangles = this.width;
+				var distances=new Array(nbangles);
+				var i=0
+				str="";
+				for (var rayangle=startangle; rayangle<endangle; rayangle=rayangle+this.AngleRadByColumn)
+				{
+					this.ComputeTanRayAngle(rayangle);
+					var dv=this.FindWallVertical(xunitplayer,yunitplayer,rayangle,debug);
+					var dh=this.FindWallHorizontal(xunitplayer,yunitplayer,rayangle,debug);
+					var d=Math.min(dv,dh);
+					distances[i]=d;
+					console.log("i="+i);
+					console.log("d="+d);
+					str+="i="+i+"   min d="+d+"\n";
+					i=i+1;
+				}
+				return str;
+				
+			}
+			
+			
+			
+		}
+		
+		var canvas = document.getElementById("gameCanvas");
+		var story = document.getElementById("story");
+		
+		
+		var gameWindow=new GameWindow(canvas);
+		gameWindow.drawBorder();
+		gameWindow.drawMap();
+		gameWindow.drawGrid();
+		gameWindow.drawPlayer();
+		var d=gameWindow.drawoneintersection();
+		story.value=d;
+		
+		var canvas1 = document.getElementById("gameCanvas1");
+		var story1 = document.getElementById("story1");
+		
+		var gameWindow1=new GameWindow(canvas1);
+		gameWindow1.drawBorder();
+		gameWindow1.drawMap();
+		gameWindow1.drawGrid();
+		gameWindow1.drawPlayer();
+		var d=gameWindow1.drawallintersection();
+		story1.value=d;
+		
+		
+		var canvas2 = document.getElementById("gameCanvas2");
+		var story2 = document.getElementById("story2");
+		
+		
+		var gameWindow2=new GameWindow(canvas2);
+		gameWindow2.drawBorder();
+		gameWindow2.drawMap();
+		gameWindow2.drawGrid();
+		gameWindow2.drawPlayer();
+		var d=gameWindow2.drawallBestintersections();
+		story2.value=d;
+
+		
+		
+		
+	</script>	
+</html>

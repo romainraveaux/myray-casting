@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Ray Casting Tutorial</title>
+
+    </head>
+
+    <body>
+	<h1>Step 2 DEFINING PROJECTION ATTRIBUTES</h1>
+	Specifically, we need to know these attributes:
+<li> Player/viewer’s height, player’s field of view (FOV), and player’s position.
+<li> Projection plane’s dimension.
+<li> Relationship between player and projection plane.
+<br>
+<img src="./figures/fig1.png" alt=""/>
+<h2> Field of view (FOV) = 60 degrees</h2>
+<li> The player should be able to see what is in front of him/her. For this, we will need to define a field of view (FOV). The FOV determines how wide the player sees the world in front of him/her (see Figure above). Most humans have a FOV of 90 degrees or more. However, FOV with this angle does not look good on screen. Therefore, we define the FOV to be 60 degrees through trial and experimentation (on how good it looks on screen). 
+<h2> player’s height = 32 units</h2>
+The player’s height is defined to be 32 units because this is a reasonable assumption considering that walls (the cubes) are 64 units high.
+<h2> walls are cubes of size = 64 units</h2>
+
+<h2> Grid and Unit coordinates</h2>
+<br>
+<img src="./figures/fig2.png" alt=""/>
+<br>
+The player P of coordinates(px,py) is at the coordinates (1,2) in the Grid coordinates (see Figure above). 
+<br>
+What does it means ????? 
+In a continuous world, the player will be at (1,5,2.5) but our grid is discrete so grid coordinates are rounded down to (1,2). In the unit coordinate the player is at (1.5*wallsize, 2.5*wallsize)=(64+32,128+32).
+So becareful, there are the Grid Coordinates and the Unit Coordinates. The Grid Coordinates is a kind of block coordinates system. The Unit Coordinates is a roughly a pixel coordinates system.
+
+<h2>Let us code a map in the Grid and in the Unit coordinates système</h2>
+<li> First let us display the grid of 64 pixels units.
+<pre><code>
+drawGrid: function()
+{
+	//Draw vertical axis
+	cssColor="blue";
+	for (var x=0; x<this.width; x=x+this.wallsize)
+	{
+		this.drawLine(x,0,x,this.height,cssColor);			
+	}
+	
+	//Draw horizontal axis
+	for (var y=0; y<this.height; y=y+this.wallsize)
+	{
+		this.drawLine(0,y,this.width,y,cssColor);			
+	}	
+},
+</code></pre>
+			
+			
+
+<li> The map is a square of 6 rows and 6 colums. 
+<li> The width is 6 and the hight is 6.
+<li> Each cell will have a size of 64 pixels (units).
+
+<pre><code>
+// Size of a wall = 64 pixels
+this.wallsize=64
+			
+// 2 dimensional map
+this.fMap=[];
+this.MAP_WIDTH=6;
+this.MAP_HEIGHT=6; 
+</code></pre>
+
+<li> The map is encoded as 1D array of chars.			
+<pre><code>
+// CREATE A SIMPLE MAP.
+// Use string for elegance (easier to see).  W=Wall, O=Opening
+// CREATE A SIMPLE MAP.
+// Use string for elegance (easier to see).  W=Wall, O=Opening
+var map=
+		'WWWWWW'+
+		'WOOOOW'+
+		'WOOOOW'+
+		'WOOOOW'+
+		'WOOOOW'+
+		'WWWWWW';
+// Remove spaces and tabs
+this.fMap=map.replace(/\s+/g, '');			
+</code></pre>
+<li> Each cell of the map will be a square of 64 by 64. So we need a function to draw rectangles.
+
+<pre><code>
+drawFillRectangle: function(x, y, width, height, cssColor)
+			{
+				this.context.fillStyle = cssColor; 
+				this.context.beginPath();
+				this.context.rect(x, y, width, height);
+				this.context.closePath();
+				this.context.fill();		
+			},
+
+</code></pre>
+
+<li> Then we need a function to get an 1D index from x and y 2D coordinates.
+<pre><code>
+xytoindex: function(x,y,width)
+			{
+				index = x + width*y;
+				return index;
+			},
+</code></pre>
+<li> Then we need to draw each block from the map.</li>
+
+<pre><code>		
+	for (var y=0; y&lt;this.MAP_HEIGHT; y++)
+	{
+		for (var x=0; x&lt;this.MAP_WIDTH; x++)
+		{
+			var cssColor="white";
+			index=this.xytoindex(x,y,this.MAP_WIDTH);
+			if (this.fMap.charAt(index)=="W")
+			{
+				cssColor="black";
+			}
+			else
+			{
+			}
+			
+			this.drawFillRectangle(x*this.wallsize,
+		y*this.wallsize, this.wallsize, this.wallsize, cssColor);
+		}
+	}
+</code></pre>
+<li>  Let us put the canvas</li>
+	<canvas id="gameCanvas" width="640" height="480">
+            <!-- Insert fallback content here -->
+        </canvas>
+
+
+<h2> Projection plane </h2>
+We need to define a projection plane so that we can project what the player sees into the projection plane. A projection plane of 320 units wide and 200 units high is a good start.
+
+By knowing the field of view (FOV) and the dimension of the projection plane, we can calculate the angle between subsequent rays and the distance between the player and the projection plane. These steps are illustrated in the Figure below.<br>
+<img src="./figures/fig3.png" alt=""/>
+<h2> Distance to the Projection plane </h2>
+The distance between the player and the projection plane. We know that the player is at the coordinates (160,100,d) in the Unit Coordinates system. The player is at the middle of the width 320/2=160.
+d is the distance to the projection plane.
+<br>
+FOV=60 degrees <br>
+tan(30) = 160/d  <br>
+So --> d = 160/tan(30) = 277
+<br>
+From this we known the coordinates of the player (160,100,277).
+<br>
+<img src="./figures/fig4.png" alt=""/>
+<br>
+<br>
+<img src="./figures/fig5.png" alt=""/>
+<br>
+
+<h2> So now we know:</h2>
+<li> Dimension of the Projection Plane = 320 x 200 units
+<li> Center of the Projection Plane = (160,100)
+<li> Distance to the Projection Plane = 277 units
+<li> Angle between subsequent rays = 1 column = 60/320 degrees=0.1875 degrees.
+<li> Number of angles = 320 angles.
+
+<h2> Let us code it </h2>
+<li> Programmer's tricks. It is faster to deal with integers. 
+<li> Angles could be expressed as integers and stored in tables.
+<li> FOV=60 degrees = 320 units in the projection plane
+<li> 30 degrees = 160 units in the projection plane
+<li> 15 degrees = 80 units in the projection plane
+<li> and so on
+<li> We will see later that this trick could be useful to build an look up table.
+
+<pre><code>
+
+			//Convert arc (degree) to radian
+			degreeToRad: function(arcAngle)
+			{
+				return ((arcAngle*Math.PI)/180);    
+			},
+			
+			function GameWindow(canvas) {
+				// create the main canvas
+				this.width = canvas.width;
+				this.height = canvas.height;  
+				this.canvas = canvas;  
+				this.context = this.canvas.getContext( '2d' );
+				this.animationFrameID;			
+				//PROJECTION ATTRIBUTES
+				this.FOV=60
+				this.HalfFOV=this.FOV/2
+				this.HalfFOVrad=this.degreeToRad(this.HalfFOV)
+				this.CenterProjectionPlaneX=this.width/2
+				this.CenterProjectionPlaneY=this.height/2
+				this.DistanceProjectionPlane=this.CenterProjectionPlaneX/Math.tan(this.HalfFOVrad)
+				this.AngleByColumn=this.FOV/this.width			
+				console.log("DistanceProjectionPlane="+this.DistanceProjectionPlane);
+			}
+</code></pre>
+	
+	<li> We display the player in red p(160,200-32)
+	<li> Blue lines represent the FOV of the player p 
+	<li> Green lines represent the FOV for a virtual player v(160,277) located at the distance to projection place (y=277)
+	
+	<canvas id="gameCanvas1" width="640" height="480">
+            <!-- Insert fallback content here -->
+        </canvas>
+
+		
+		<h1>Next: Step 3: FINDING WALLS</h1>
+		<li> <a href="step3.html">step3.html</a>
+		<h1>Back: Step 1: What's ray tracing</h1>
+		<li> <a href="tutorialraycastingv1.html">tutorialraycastingv1.html</a>
+    </body>
+
+	
+	<script>
+	function GameWindow(canvas) {
+			// create the main canvas
+			this.width = canvas.width;
+			this.height = canvas.height;  
+			this.canvas = canvas;  
+			this.context = this.canvas.getContext( '2d' );
+			this.animationFrameID;	
+
+			//PROJECTION ATTRIBUTES
+			this.FOV=60
+			this.HalfFOV=this.FOV/2
+			this.HalfFOVrad=this.degreeToRad(this.HalfFOV)
+			this.CenterProjectionPlaneX=this.width/2
+			this.CenterProjectionPlaneY=this.height/2
+			this.DistanceProjectionPlane=this.CenterProjectionPlaneX/Math.tan(this.HalfFOVrad)
+			this.AngleByColumn=this.FOV/this.width			
+			console.log("DistanceProjectionPlane="+this.DistanceProjectionPlane);
+			
+			// Size of a wall = 64 pixels
+			this.wallsize=64
+			
+			// 2 dimensional map
+			this.fMap=[];
+			this.MAP_WIDTH=6;
+			this.MAP_HEIGHT=6; 
+		}
+		
+		GameWindow.prototype = 
+		{
+		
+			xytoindex: function(x,y,width)
+			{
+				index = x + width*y;
+				return index;
+			},
+			
+			drawFillRectangle: function(x, y, width, height, cssColor)
+			{
+				this.context.fillStyle = cssColor; 
+				this.context.beginPath();
+				this.context.rect(x, y, width, height);
+				this.context.closePath();
+				this.context.fill();		
+			},
+			
+			
+			drawGrid: function()
+			{
+				
+				//Draw vertical axis
+				cssColor="blue";
+				for (var x=0; x<this.width; x=x+this.wallsize)
+				{
+					this.drawLine(x,0,x,this.height,cssColor);			
+				}
+				
+				//Draw horizontal axis
+				for (var y=0; y<this.height; y=y+this.wallsize)
+				{
+					this.drawLine(0,y,this.width,y,cssColor);			
+				}	
+			},
+			
+			drawMap: function()
+			{
+				// CREATE A SIMPLE MAP.
+				// Use string for elegance (easier to see).  W=Wall, O=Opening
+				var map=
+							'WWWWWW'+
+							'WOOOOW'+
+							'WOOOOW'+
+							'WOOOOW'+
+							'WOOOOW'+
+							'WWWWWW';
+				// Remove spaces and tabs
+				this.fMap=map.replace(/\s+/g, '');	
+
+				for (var y=0; y<this.MAP_HEIGHT; y++)
+				{
+					for (var x=0; x<this.MAP_WIDTH; x++)
+					{
+						var cssColor="white";
+						index=this.xytoindex(x,y,this.MAP_WIDTH);
+						if (this.fMap.charAt(index)=="W")
+						{
+							cssColor="black";
+						}
+						else
+						{
+						}
+						
+						this.drawFillRectangle(x*this.wallsize,
+					y*this.wallsize, this.wallsize, this.wallsize, cssColor);
+					}
+				}
+				
+			},
+				//*******************************************************************//
+			//* Convert arc (degree) to radian
+			//*******************************************************************//
+			degreeToRad: function(arcAngle)
+			{
+				return ((arcAngle*Math.PI)/180);    
+			},
+			
+			drawLine: function(startX, startY, endX, endY, cssColor)
+			{
+				//console.log("cssColor="+cssColor);
+				this.context.strokeStyle  = cssColor; 
+				this.context.beginPath();
+				this.context.moveTo(startX, startY);
+				this.context.lineTo(endX, endY);	
+				this.context.stroke();	
+			},
+			
+
+		
+			rgbToHexColor : function(red, green, blue) 
+			{
+				var result="#"+
+					red.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})+""+
+					green.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false})+""+
+					blue.toString(16).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false});
+				return result;
+			},
+			
+			drawBorder : function()
+			{
+
+				//var cssColor=this.rgbToHexColor(255, 125, 225);
+				//x=this.width/2
+				//console.log("x="+x);
+				//this.drawLine(x,0,x,this.height,cssColor);			
+				
+				var cssColor=this.rgbToHexColor(0, 0, 0);
+				//Left border
+				this.drawLine(0,0,0,this.height,cssColor);			
+				//Right border
+				this.drawLine(this.width,0,this.width,this.height,cssColor);			
+				//Up border
+				this.drawLine(0,0,this.width,0,cssColor);			
+				//Down border
+				this.drawLine(0,this.height,this.width,this.height,cssColor);			
+				
+				
+			},
+			
+			drawPlayer : function()
+			{
+							
+				this.drawFillRectangle(this.width/2,
+					this.height-(this.wallsize/2), this.wallsize/8, this.wallsize/8, "red");
+			},
+			
+			drawFOV : function()
+			{
+				var gap=this.DistanceProjectionPlane-this.height+(this.wallsize/2)
+				
+				this.drawLine(this.width/2,
+					this.DistanceProjectionPlane,0,0,"green");
+					
+				this.drawLine(this.width/2,
+					this.DistanceProjectionPlane,this.width-1,0,"green");
+					
+					this.drawLine(this.width/2,
+					this.DistanceProjectionPlane-gap,0,-gap,"blue");
+					
+				this.drawLine(this.width/2,
+					this.DistanceProjectionPlane-gap,this.width-1,-gap,"blue");
+					
+			}
+		}
+		
+		var canvas = document.getElementById("gameCanvas");
+		
+		
+		var gameWindow=new GameWindow(canvas);
+		gameWindow.drawMap();
+		gameWindow.drawGrid();
+		
+		
+		var canvas1 = document.getElementById("gameCanvas1");
+		
+		
+		var gameWindow1=new GameWindow(canvas1);
+		gameWindow1.drawBorder();
+		gameWindow1.drawPlayer();
+		gameWindow1.drawFOV();
+		
+		
+		
+	</script>	
+</html>
